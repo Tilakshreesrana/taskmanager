@@ -1,74 +1,84 @@
 import React, { useState, useEffect } from "react";
-import * as material from "@mui/material";
+import axios from "axios";
+import {
+  TextField,
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Checkbox,
+} from "@mui/material";
 import { Delete, Edit } from "@mui/icons-material";
 
-function Todo() {
+const API_URL = "http://localhost:5000/tasks";
+
+function App() {
   const [tasks, setTasks] = useState([]);
   const [input, setInput] = useState("");
-  const [editIndex, setEditIndex] = useState(-1);
+  const [editIndex, setEditIndex] = useState(null);
   const [editInput, setEditInput] = useState("");
 
-  // Load tasks from local storage on initial render
   useEffect(() => {
-    const savedTasks = JSON.parse(localStorage.getItem("tasks"));
-    if (savedTasks) {
-      setTasks(savedTasks);
-    }
+    fetchTasks();
   }, []);
 
-  // Save tasks to local storage whenever they change
-  useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
+  const fetchTasks = async () => {
+    const response = await axios.get(API_URL);
+    setTasks(response.data);
+  };
 
-  const addTask = () => {
+  const addTask = async () => {
     if (input.trim()) {
-      setTasks([...tasks, { text: input, completed: false }]);
+      const response = await axios.post(API_URL, { text: input });
+      setTasks([...tasks, response.data]);
       setInput("");
     }
   };
 
-  const toggleComplete = (index) => {
-    const newTasks = tasks.map((task, i) =>
-      i === index ? { ...task, completed: !task.completed } : task
+  const updateTask = async (id, updatedTask) => {
+    const response = await axios.put(`${API_URL}/${id}`, updatedTask);
+    setTasks(
+      tasks.map((task) =>
+        task._id === id ? response.data : task
+      )
     );
-    setTasks(newTasks);
   };
 
-  const removeTask = (index) => {
-    const newTasks = tasks.filter((_, i) => i !== index);
-    setTasks(newTasks);
+  const deleteTask = async (id) => {
+    await axios.delete(`${API_URL}/${id}`);
+    setTasks(tasks.filter((task) => task._id !== id));
   };
 
-  const editTask = (index) => {
-    setEditIndex(index);
-    setEditInput(tasks[index].text);
+  const toggleComplete = (id) => {
+    const task = tasks.find((task) => task._id === id);
+    updateTask(id, { ...task, completed: !task.completed });
   };
 
-  const saveTask = () => {
-    const newTasks = tasks.map((task, i) =>
-      i === editIndex ? { ...task, text: editInput } : task
-    );
-    setTasks(newTasks);
-    setEditIndex(-1);
+  const saveTask = (id) => {
+    updateTask(id, { text: editInput, completed: false });
+    setEditIndex(null);
     setEditInput("");
   };
 
   return (
     <div style={{ margin: "20px auto", maxWidth: "600px" }}>
-      <material.Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom>
         To-Do List
-      </material.Typography>
-      <material.Card variant="outlined" style={{ marginBottom: "20px" }}>
-        <material.CardContent>
-          <material.TextField
+      </Typography>
+      <Card variant="outlined" style={{ marginBottom: "20px" }}>
+        <CardContent>
+          <TextField
             fullWidth
             label="Add a task"
             variant="outlined"
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
-          <material.Button
+          <Button
             variant="contained"
             color="primary"
             style={{ marginTop: "10px" }}
@@ -76,71 +86,57 @@ function Todo() {
             fullWidth
           >
             Add Task
-          </material.Button>
-        </material.CardContent>
-      </material.Card>
-
-      <material.List>
-        {tasks.map((task, index) => (
-          <material.ListItem
-            key={index}
+          </Button>
+        </CardContent>
+      </Card>
+      <List>
+        {tasks.map((task) => (
+          <ListItem
+            key={task._id}
             style={{
+              textDecoration: task.completed ? "line-through" : "none",
               backgroundColor: "#f9f9f9",
               marginBottom: "10px",
               borderRadius: "5px",
             }}
           >
-            <material.Checkbox
+            <Checkbox
               checked={task.completed}
-              onChange={() => toggleComplete(index)}
+              onChange={() => toggleComplete(task._id)}
             />
-            {editIndex === index ? (
-              <material.TextField
+            {editIndex === task._id ? (
+              <TextField
                 value={editInput}
                 onChange={(e) => setEditInput(e.target.value)}
                 fullWidth
                 variant="standard"
               />
             ) : (
-              <material.ListItemText
-                primary={task.text}
-                style={{
-                  textDecoration: task.completed ? "line-through" : "none", // Apply strike-through only to the task text
-                }}
-              />
+              <ListItemText primary={task.text} />
             )}
-            <material.ListItemSecondaryAction>
-              {editIndex === index ? (
-                <material.Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={saveTask}
-                  style={{ marginRight: "5px" }}
-                >
-                  Save
-                </material.Button>
-              ) : (
-                <material.IconButton
-                  edge="end"
-                  onClick={() => editTask(index)}
-                  color="primary"
-                >
-                  <Edit />
-                </material.IconButton>
-              )}
-              <material.IconButton
-                edge="end"
-                onClick={() => removeTask(index)}
-                color="error"
-              >
-                <Delete />
-              </material.IconButton>
-            </material.ListItemSecondaryAction>
-          </material.ListItem>
+            <IconButton
+              edge="end"
+              onClick={() =>
+                editIndex === task._id
+                  ? saveTask(task._id)
+                  : setEditIndex(task._id) & setEditInput(task.text)
+              }
+              color="primary"
+            >
+              <Edit />
+            </IconButton>
+            <IconButton
+              edge="end"
+              onClick={() => deleteTask(task._id)}
+              color="error"
+            >
+              <Delete />
+            </IconButton>
+          </ListItem>
         ))}
-      </material.List>
+      </List>
     </div>
   );
 }
 
-export default Todo;
+export default App;
